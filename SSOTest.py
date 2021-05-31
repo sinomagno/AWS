@@ -5,6 +5,7 @@ from typing import List, Any
 import botocore.exceptions
 import boto3
 
+
 DefaultRegion = "us-east-1"
 sso = boto3.client('sso', region_name=DefaultRegion)
 Regions = ["af-south-1", "eu-north-1", "ap-south-1", "eu-west-3", "eu-west-2", "eu-south-1", "eu-west-1",
@@ -18,18 +19,22 @@ def active_region(Session):
     :param Session:
     :return:
     """
-    tag = []
+    r_region = []
+
     for region in Regions:
+        tag = []
         try:
             ec2 = Session.resource('ec2', region_name=region)
             All_instances = ec2.instances.all()
             for instance in All_instances:
-                key_value = 'Name'
-                tag = [d['Value'] for d in instance.tags if d['Key'] == key_value]
+                key_value = 'OS'
+                tag.append([d['Value'] for d in instance.tags if (d['Key']).upper() == key_value])
         except botocore.exceptions.ClientError as error:
             print(f"Region: ", region, " is not current enabled")
         if tag:
-            return region
+            r_region.append(region)
+
+    return r_region
 
 
 def get_credentials(AccountId, roleName):
@@ -58,11 +63,11 @@ def gatheraccesstoken():
     """
     Filepath = os.path.join(os.environ['USERPROFILE'], ".aws\\sso\\cache\\*")
     list_of_files = glob.glob(Filepath)
-    latest_file = max(list_of_files, key=os.path.getctime)
+    latest_file = max(list_of_files, key=os.path.getmtime)
     with open(latest_file, 'r') as ssocache:
         info = json.load(ssocache)
     ssocache.close()
-    return info['accessToken']
+    return info.get('accessToken', '')
 
 
 def gatheroleassignment(ListofAccount):
@@ -90,13 +95,17 @@ def gatheraccountlist():
     """
     Accountlist = []
     AccessToken = gatheraccesstoken()
-    List_accounts = sso.list_accounts(
-        maxResults=200,
-        accessToken=AccessToken
-    )
-    for listAccount in List_accounts['accountList']:
-        Accountlist.append(listAccount['accountId'])
-    return Accountlist
+    if AccessToken:
+        List_accounts = sso.list_accounts(
+            maxResults=200,
+            accessToken=AccessToken
+        )
+        for listAccount in List_accounts['accountList']:
+            Accountlist.append(listAccount['accountId'])
+        return Accountlist
+    else:
+        return "No access token"
+        exit(1)
 
 
 def create_session(accessKeyId, SecretAccessKey, Sessiontoken):
@@ -117,13 +126,14 @@ def create_session(accessKeyId, SecretAccessKey, Sessiontoken):
 
 def Connect_to_AWS_Service(Session, ServiceName, region):
     """
-    Return the connection of a AWS service
+    Return an AWS service
     :param Session:
     :param ServiceName:
     :param region:
     :return:
     """
     return Session.client(ServiceName, region_name=region)
+
 
 def convert_list_to_string(List, separator):
     """ Convert list to string, by joining all item in list with given separator.
