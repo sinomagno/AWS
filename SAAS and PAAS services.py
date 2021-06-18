@@ -1,4 +1,4 @@
-from SSOTest import *
+from sso import get_credentials, Connect_to_AWS_Service, gatheraccountlist, active_region
 
 
 def create_session_keys(account):
