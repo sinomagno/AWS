@@ -29,4 +29,4 @@ python3 -m pip install progress
 ```
 
 
-### **All the scripts were tested in Windows 10**
+## **All the scripts were tested in Windows 10**
