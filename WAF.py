@@ -1,5 +1,5 @@
-from botocore.exceptions import ProfileNotFound
-from sso import gatheraccountlist, get_credentials, create_session, Connect_to_AWS_Service, active_region, convert_list_to_string
+from boto3 import session
+from sso import gatheraccountlist, get_credentials, create_session, Connect_to_AWS_Service, active_region, convert_list_to_string, gatheraccoultrolelist
 import os
 import csv
 from typing import List, Any
@@ -8,9 +8,7 @@ import signal
 import sys
 from progress.bar import IncrementalBar
 
-
 def def_handler(sig, frame):
-
     print("\n[!] Saliendo...\n")
     sys.exit(1)
 
@@ -19,16 +17,16 @@ def def_handler(sig, frame):
 signal.signal(signal.SIGINT, def_handler)
 
 
-def create_session_keys(account):
+def create_session_keys(account, role_account):
     """
         Receive an account number
         Return the accessKeyId, secretAccessKey, sessionToken
         of the AWS authentication
     """
-    Role = "Sino_role"
 
-    get_credentials(account, Role)
-
+    get_credentials(account, role_account)
+    credentials = get_credentials(account, role_account)
+    
     Session = create_session(str(credentials['roleCredentials']['accessKeyId']),
                              str(credentials['roleCredentials']['secretAccessKey']),
                              str(credentials['roleCredentials']['sessionToken']))
@@ -39,7 +37,7 @@ def create_session_keys(account):
 def get_waf_acls(rule_waf_acls):
     """
      :param A list of WEBACLs deployed for an account WAF.
-     :return baseline rule (AWS-AWSManagedRulesCommonRuleSet, AWS-AWSManagedRulesSQLiRuleSet, AWSManagedRulesKnownBadInputsRuleSet), the metrics name, and the rules that are in count mode inside the AWS checked.
+     :return baseline rule (AWS-AWSManagedRulesCommonRuleSet, AWS-AWSManagedRulesSQLiRuleSet, AWSManagedRulesKnownBadInputsRuleSet) and the metrics name.
     """
     base_line_rule = []
     MetricName = []
@@ -151,7 +149,7 @@ def get_waf_list(account, region, Session, subscription_name):
             
             ExcludedRules = convert_list_to_string(ExcludedRules1, ',')
 
-            waf_list.append({'Subscription Name': subscription_name, 'Account': account, 'Web ACL Name': web_acl_name, 'WAF Sampled Requests Enabled': SampledRequestsEnabled, 'CloudWatchMetricsEnabled': CloudWatchMetricsEnabled, 'MetricName': MetricName, 'Base line compliance': base_line_compliance, 'All Rules login': rule_logging, 'ELB Attached': elb_attached, 'ELB config': elastic_load_balancer,'AWS enabled': baseline_rules, 'ExcludedRules': ExcludedRules,'Region': region})
+            waf_list.append({'Subscription Name': subscription_name, 'Account': account, 'Web ACL Name': web_acl_name, 'WAF Sampled Requests Enabled': SampledRequestsEnabled, 'CloudWatchMetricsEnabled': CloudWatchMetricsEnabled, 'MetricName': MetricName, 'AWS Basic Rules': base_line_compliance, 'All Rules login': rule_logging, 'ELB Attached': elb_attached, 'ELB config': elastic_load_balancer,'AWS enabled': baseline_rules, 'ExcludedRules': ExcludedRules,'Region': region})
 
     return waf_list
 
@@ -160,10 +158,10 @@ def export_to_excel(list_with_info):
     """
         Receive a list of dictionaries to create an excel file in a fixed path
     """
-    file_path = r"C:\Users\Sinomagno\Documents\WAF_regionv2.csv"
+    file_path = r"C:\Users\Sinomagno\Documents\WAF.csv"
     file_exists = os.path.isfile(file_path)
     with open(file_path, 'a+', newline='') as csv_resource_list:
-            fieldnames = ['Subscription Name', 'Account', 'Web ACL Name', 'WAF Sampled Requests Enabled', 'CloudWatchMetricsEnabled', 'MetricName', 'Base line compliance', 'All Rules login', 'ExcludedRules', 'AWS enabled', 'ELB Attached', 'ELB config','Region']
+            fieldnames = ['Subscription Name', 'Account', 'Web ACL Name', 'WAF Sampled Requests Enabled', 'CloudWatchMetricsEnabled', 'MetricName', 'AWS Basic Rules', 'All Rules login', 'ExcludedRules', 'AWS enabled', 'ELB Attached', 'ELB config','Region']
             csv_writer = csv.DictWriter(csv_resource_list, fieldnames=fieldnames) 
             if not file_exists:
                  csv_writer.writeheader()
@@ -179,23 +177,19 @@ def main_program(Allaccounts):
     :return a list of dictionary with the information necessary
     """
     bar = IncrementalBar('Account processed', max = len(Allaccounts))
-
-    for account in Allaccounts:
         
-        account_aliases = {}
+    for account_dict in Allaccounts:
+        
         Active_region = list()
-        subscription_name = ''
         waf_list = list()
 
-        Session = create_session_keys(account)
+        account = account_dict['accountId']
+        subscription_name = account_dict['accountName']
+
+        role = gatheraccoultrolelist(account)
+        Session = create_session_keys(account, role)
 
         Active_region = active_region(Session)
-        
-        iam = Connect_to_AWS_Service(Session, 'iam', 'us-east-1')
-        account_aliases = iam.list_account_aliases()
-
-        if account_aliases['AccountAliases']:
-            subscription_name = account_aliases['AccountAliases'][0]
 
         for region in Active_region:
             waf_list = get_waf_list(account, region, Session, subscription_name)
@@ -211,7 +205,7 @@ if __name__ == '__main__':
     """
         Program start
     """
-    Allaccounts: List[Any] = gatheraccountlist()
+    Allaccounts = gatheraccountlist()
     
     if isinstance(Allaccounts, List):
         main_program(Allaccounts)
