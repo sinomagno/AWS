@@ -100,8 +100,28 @@ def gatheraccountlist():
             accessToken=AccessToken
         )
         for listAccount in List_accounts['accountList']:
-            Accountlist.append(listAccount['accountId'])
+            Accountlist.append({'accountId' : listAccount['accountId'], 'accountName' : listAccount['accountName']})
         return Accountlist
+    else:
+        return "No access token"
+        
+
+def gatheraccoultrolelist(account_Id):
+    """
+    - Authenticate to AWS using the Access Token
+    :return: list with the first role found
+
+    """
+    role_account = ''
+
+    AccessToken = gatheraccesstoken()
+    if AccessToken:
+        role_account = sso.list_account_roles(
+            maxResults=200,
+            accessToken=AccessToken,
+            accountId = account_Id
+        )
+        return role_account['roleList'][0]['roleName']
     else:
         return "No access token"
         exit(1)
