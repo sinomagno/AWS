@@ -117,6 +117,9 @@ def get_waf_list(account, region, Session, subscription_name):
     if isinstance(Waf_List_web_acls['WebACLs'], list):
         for waf_acls in Waf_List_web_acls['WebACLs']:
             
+	    logging_destination = ""
+            logging_destination_name = ""
+
             base_line_compliance = False
 
             web_acl_name = waf_acls.get('Name',' ')
@@ -129,6 +132,18 @@ def get_waf_list(account, region, Session, subscription_name):
                 Id=web_acl_id
             )
             
+            try: 
+                get_logging = waf_service.get_logging_configuration(
+                    ResourceArn=web_acl_arn
+                )
+
+                logging_destination = get_logging['LoggingConfiguration']['LogDestinationConfigs'][0]
+                logging_destination_name = re.split(r'/', logging_destination)[1]
+
+            except:
+                get_logging = ""
+
+
             elb_names, elbv2_arn = get_elb_attached(web_acl_arn, waf_service)
             elb_attached = convert_list_to_string(elb_names, ',')
             
@@ -149,7 +164,7 @@ def get_waf_list(account, region, Session, subscription_name):
             
             ExcludedRules = convert_list_to_string(ExcludedRules1, ',')
 
-            waf_list.append({'Subscription Name': subscription_name, 'Account': account, 'Web ACL Name': web_acl_name, 'WAF Sampled Requests Enabled': SampledRequestsEnabled, 'CloudWatchMetricsEnabled': CloudWatchMetricsEnabled, 'MetricName': MetricName, 'AWS Basic Rules': base_line_compliance, 'All Rules login': rule_logging, 'ELB Attached': elb_attached, 'ELB config': elastic_load_balancer,'AWS enabled': baseline_rules, 'ExcludedRules': ExcludedRules,'Region': region})
+            waf_list.append({'Subscription Name': subscription_name, 'Account': account, 'Web ACL Name': web_acl_name, 'WAF Sampled Requests Enabled': SampledRequestsEnabled, 'CloudWatchMetricsEnabled': CloudWatchMetricsEnabled, 'MetricName': MetricName, 'Base line compliance': base_line_compliance, 'All Rules login': rule_logging, 'ELB Attached': elb_attached, 'ELB config': elastic_load_balancer,'Base line enabled': baseline_rules, 'ExcludedRules': ExcludedRules, 'Log destination': logging_destination_name, 'Region': region})
 
     return waf_list
 
