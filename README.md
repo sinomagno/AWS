@@ -21,7 +21,7 @@ The script retrieve information of the buckets and WAF deployed in each account.
 
 It is a bit more complex script that retrieves the information of all Web Application Firewall (**WAF**) deployed in each account and each region. Also, gather the information of the ELBv2 attached to the WAF and some configuration, like the ports open, and the SSL Policy attached in those ports.
 
-For this script is necessary to install the progress library
+For this script is necessary to install the (progress library)[https://github.com/verigak/progress]
 
 ```python3
 python3 -m pip install progress
